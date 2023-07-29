@@ -1,0 +1,7 @@
+datetime
+ntplib
+discord
+asyncio
+yt_dlp
+python-dotenv
+
