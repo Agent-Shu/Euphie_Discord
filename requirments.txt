@@ -4,4 +4,4 @@ discord
 asyncio
 yt_dlp
 python-dotenv
-
+pynacl
