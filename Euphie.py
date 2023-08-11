@@ -1,12 +1,15 @@
-import datetime
-import ntplib
-import discord
 import asyncio
+import datetime
+from dotenv import dotenv_values
+import discord
+from discord import app_commands
+from discord.ext import commands
+import ntplib
+import re
+import warnings
 import yt_dlp
 
-import re
-import urllib.parse as urlparse
-
+warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 ydl_opts = {
     'format': 'worstaudio/worst',
@@ -16,16 +19,6 @@ ydl_opts = {
         'preferredquality': '192',
     }],
 }
-
-
-
-from discord import app_commands
-from discord.ext import commands
-
-from dotenv import dotenv_values
-
-import warnings
-warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 #try:
     #temp_time = ntplib.NTPClient()
@@ -49,7 +42,6 @@ async def on_ready():
     for guild in client.guilds:
         song_queue[guild.id] = []
         print("Server Name:",guild.name,"  Server ID:",guild.id,'\n')
-    
     #print(song_queue)
 
     try:
@@ -71,11 +63,15 @@ async def on_guild_remove(guild):
     #print(song_queue)
 
 
+# TEST
+
 @client.tree.command(name="hello", description="Simple hello command")
 @app_commands.describe(your_name = "Enter your Name")
 async def hello(interaction: discord.Interaction, your_name:str):
     return await interaction.response.send_message(f"hello {your_name}", ephemeral= True)
 
+
+# UTILITY
 
 @client.tree.command(name="ping", description="Check Latency")
 async def ping(interaction: discord.Interaction):
@@ -89,7 +85,53 @@ async def hello(interaction: discord.Interaction, user:discord.User):
         return await interaction.response.send_message(f"Discord ID: {user.id}", ephemeral= False)
     else:
         return await interaction.response.send_message(f"You dont have permission for this command", ephemeral= True)
+    
 
+# MUSIC FUNC
+
+async def search_link(amount, link, get_url= False):
+    info = await client.loop.run_in_executor(None, lambda: yt_dlp.YoutubeDL(ydl_opts).extract_info(f"ytsearch{amount}:{link}", download= False))
+    if len(info["entries"]) == 0:
+        return None
+    return [entry["webpage_url"] for entry in info["entries"]] if get_url else info
+
+async def search_title(amount, link, get_url= False):
+    info = await client.loop.run_in_executor(None, lambda: yt_dlp.YoutubeDL(ydl_opts).extract_info(f"ytsearch{amount}:{link}", download= False))
+    if len(info["entries"]) == 0:
+        return None
+    return [entry["title"] for entry in info["entries"]] if get_url else info
+
+async def embed_result(interaction, link, vidid, get_url=False):
+    title = await search_title(1, link, get_url= True)
+    embed = discord.Embed(title=title[0], description=link, colour=discord.Colour.magenta())
+    embed.set_thumbnail(url=f'https://img.youtube.com/vi/'+vidid+'/maxresdefault.jpg')
+    await interaction.followup.send(embed=embed)
+
+async def play_song(interaction, link, vidid, get_url= False):
+    title = await search_title(1, link, get_url= True)
+    embed = discord.Embed(title="Now Playing", description=title[0], color=discord.Color.magenta())
+    embed.set_thumbnail(url=f'https://img.youtube.com/vi/'+vidid+'/maxresdefault.jpg')
+
+    await interaction.followup.send(embed=embed)
+
+    filename = await asyncio.get_event_loop().run_in_executor(None, lambda: yt_dlp.YoutubeDL(ydl_opts).extract_info(link, download= False))
+    interaction.guild.voice_client.play(discord.PCMVolumeTransformer(discord.FFmpegPCMAudio(filename['url']),volume=0.32), after=lambda error:client.loop.create_task(check_queue(interaction, get_url= True)))
+
+async def check_queue(interaction, get_url= False):
+    if len(song_queue[interaction.guild_id]) > 0:
+        vidid= await extract_vidid(song_queue[interaction.guild_id][0])
+        await play_song(interaction, song_queue[interaction.guild_id][0], vidid, get_url=True)
+        song_queue[interaction.guild_id].pop(0)
+    else:
+        interaction.guild.voice_client.stop()
+
+async def extract_vidid(link):
+    vidid = re.search(r"^((?:https?:)?\/\/)?((?:www|m)\.)?((?:youtube(-nocookie)?\.com|youtu.be))(\/(?:[\w\-]+\?v=|embed\/|live\/|v\/)?)([\w\-]+)(\S+)?$", link)
+    if vidid:
+        return vidid.group(6)
+
+
+# MUSIC COMMANDS
 
 @client.tree.command(name="join", description="Join's users voice channel")
 async def join(interaction: discord.Interaction):
@@ -114,59 +156,7 @@ async def leave(interaction: discord.Interaction):
             return await interaction.guild.voice_client.disconnect()
         else:
             return await interaction.response.send_message(f"You cant use this", ephemeral= True)
-
-
-
-
-
-
-
-
-
-async def search_link(amount, link, get_url= False):
-    info = await client.loop.run_in_executor(None, lambda: yt_dlp.YoutubeDL(ydl_opts).extract_info(f"ytsearch{amount}:{link}", download= False))
-    if len(info["entries"]) == 0:
-        return None
-    return [entry["webpage_url"] for entry in info["entries"]] if get_url else info
-
-
-async def search_title(amount, link, get_url= False):
-    info = await client.loop.run_in_executor(None, lambda: yt_dlp.YoutubeDL(ydl_opts).extract_info(f"ytsearch{amount}:{link}", download= False))
-    if len(info["entries"]) == 0:
-        return None
-    return [entry["title"] for entry in info["entries"]] if get_url else info
-
-
-async def embed_result(interaction, link, vidid, get_url=False):
-    title = await search_title(1, link, get_url= True)
-    embed = discord.Embed(title=title[0], description=link, colour=discord.Colour.magenta())
-    embed.set_thumbnail(url=f'https://img.youtube.com/vi/'+vidid+'/maxresdefault.jpg')
-    await interaction.followup.send(embed=embed)
-
-async def play_song(interaction, link, vidid, get_url= False):
-    title = await search_title(1, link, get_url= True)
-    embed = discord.Embed(title="Now Playing", description=title[0], color=discord.Color.magenta())
-    embed.set_thumbnail(url=f'https://img.youtube.com/vi/'+vidid+'/maxresdefault.jpg')
-
-    await interaction.followup.send(embed=embed)
-
-    filename = await asyncio.get_event_loop().run_in_executor(None, lambda: yt_dlp.YoutubeDL(ydl_opts).extract_info(link, download= False))
-    interaction.guild.voice_client.play(discord.PCMVolumeTransformer(discord.FFmpegPCMAudio(filename['url']),volume=0.30), after=lambda error:client.loop.create_task(check_queue(interaction, get_url= True)))
-
-async def check_queue(interaction, get_url= False):
-    if len(song_queue[interaction.guild_id]) > 0:
-        vidid= await extract_vidid(song_queue[interaction.guild_id][0])
-        await play_song(interaction, song_queue[interaction.guild_id][0], vidid, get_url=True)
-        song_queue[interaction.guild_id].pop(0)
-    else:
-        await interaction.guild.voice_client.stop()
-
-async def extract_vidid(link):
-    vidid = re.search(r"^((?:https?:)?\/\/)?((?:www|m)\.)?((?:youtube(-nocookie)?\.com|youtu.be))(\/(?:[\w\-]+\?v=|embed\/|live\/|v\/)?)([\w\-]+)(\S+)?$", link)
-    if vidid:
-        return vidid.group(6)
-
-
+        
 
 @client.tree.command(name="play", description="Play Music")
 @app_commands.describe(song= "Enter Youtube Link or Song Name")
@@ -267,10 +257,49 @@ async def stop(interaction: discord.Interaction):
                 return await interaction.response.send_message("You're not in the same vc", ephemeral= True)
         else:
             return await interaction.response.send_message("You're not in the vc", ephemeral= True)
-    
 
 
+@client.tree.command(name="skip", description="Resume Current Song")
+async def skip(interaction: discord.Interaction):
+    if interaction.guild.voice_client is None:
+        return await interaction.response.send_message("Not connected to any vc", ephemeral= True)
+    else:
+        if interaction.user.voice is not None:
+            if interaction.user.voice.channel == interaction.guild.voice_client.channel:
+                if len(song_queue[interaction.guild_id]) >0:
+                    interaction.guild.voice_client.stop()
+                    return await interaction.response.send_message("Skipping", ephemeral= False, delete_after= 480)
+                else:
+                    return await interaction.response.send_message("Queue is empty", ephemeral= True)
+            else:
+                return await interaction.response.send_message("You're not in the same vc", ephemeral= True)
+        else:
+            return await interaction.response.send_message("You're not in the vc", ephemeral= True)
     
+
+@client.tree.command(name="queue", description="Song Queue")
+async def queue(interaction: discord.Interaction):
+    await interaction.response.defer()
+    if len(song_queue[interaction.guild_id]) == 0:
+        return await interaction.followup.send("Queue is empty", ephemeral= True)
+    else:
+        vidid= await extract_vidid(song_queue[interaction.guild_id][0])
+        embed = discord.Embed(title='Queue - UP NEXT', colour=discord.Colour.magenta())
+        embed.set_thumbnail(url=f'https://img.youtube.com/vi/'+vidid+'/maxresdefault.jpg')
+
+        for i in song_queue[interaction.guild_id]:
+            x = await search_title(1, i, get_url= True)
+            embed.add_field(name=f'{song_queue[interaction.guild_id].index(i)+ 1}) {x[0]}', value='', inline= False)
+
+        return await interaction.followup.send(embed=embed)
+
+
+
+
+
+
+
+
 
 
 client.run(dotenv_values("token.env")["BOT_TOKEN"])
@@ -278,6 +307,4 @@ client.run(dotenv_values("token.env")["BOT_TOKEN"])
 
 
 
-    #print(discord.voice_client.VoiceClient.is_connected())
-    #print(interaction.guild.voice_client)
-    #print(vc.is_connected())
+#disabled=(True if len(song_queue[interaction.guild_id]) % 5 else False)
