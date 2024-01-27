@@ -134,7 +134,6 @@ async def play_song(interaction, link, vidid, get_url= False):
     title = await search_title(1, link, get_url= True)
     embed = discord.Embed(title="Now Playing", description=title[0], color=discord.Color.magenta())
     embed.set_thumbnail(url=f'https://img.youtube.com/vi/'+vidid+'/maxresdefault.jpg')
-
     await interaction.followup.send(embed=embed)
 
     filename = await asyncio.get_event_loop().run_in_executor(None, lambda: yt_dlp.YoutubeDL(ydl_opts).extract_info(link, download= False))
@@ -374,7 +373,8 @@ async def profile(interaction: discord.Interaction, user: discord.User):
                     break   
             bg = bg.crop((0,height/2-height_1/2,width,height/2+height_1/2))
         bg = bg.resize((800,600))
-
+        bg = bg.convert("RGBA")
+        
         draw = ImageDraw.Draw(bg, "RGBA")
         draw.rectangle(((0, 0), (800, 150)), fill=(res["color_r"],res["color_g"], res["color_b"], 140))    # TRANSLUCENT TOP
         draw.rounded_rectangle(((100, 520), (700, 570)), fill=(res["color_r"],res["color_g"], res["color_b"], 120), outline=(res["color_r"],res["color_g"], res["color_b"], 230), radius=50)   #XP BAR BG
@@ -420,6 +420,7 @@ async def edit_profile(interaction: discord.Interaction, background: Optional[st
                 collection = db["Profile_Data"]
                 res = await collection.find_one({"_id":interaction.user.id})
                 if res:
+                    rgb_color = await hex_to_rgb(color)
                     update = await collection.update_one({"_id": interaction.user.id},{"$set": {"bg_link": background,"color_r": rgb_color[0],"color_g": rgb_color[1],"color_b": rgb_color[2]}})
                     if update:
                         return await interaction.followup.send("Successfully Updated the Background Image and color")
@@ -506,9 +507,9 @@ async def hello(interaction: discord.Interaction, user:discord.User):
 async def toss(interaction: discord.Interaction):
     coin = random.randint(0, 1)
     if coin % 2 == 0:
-        return await interaction.response.send_message("Heads")
+        return await interaction.response.send_message("Heads", delete_after= 180)
     else:
-        return await interaction.response.send_message("Tails")
+        return await interaction.response.send_message("Tails", delete_after= 180)
 
 
 
