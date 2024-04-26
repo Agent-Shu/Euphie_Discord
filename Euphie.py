@@ -324,7 +324,7 @@ async def profile(interaction: discord.Interaction, user: discord.User):
     await interaction.response.defer()
     collection = db["Profile_Data"]
     res = await collection.find_one({"_id":user.id})
-
+    
     if res == None:
         if interaction.user.id == user.id:
             await interaction.followup.send("Profile doesn't exist, making one")
