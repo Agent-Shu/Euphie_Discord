@@ -494,9 +494,18 @@ async def ping(interaction: discord.Interaction):
 
 @client.tree.command(name="getuser", description="Get's Users ID")
 @app_commands.describe(user= "Select User")
-async def hello(interaction: discord.Interaction, user:discord.User):
+async def getuser(interaction: discord.Interaction, user:discord.User):
     if interaction.user.guild_permissions.administrator:
         return await interaction.response.send_message(f"Discord ID: {user.id}", ephemeral= False)
+    else:
+        return await interaction.response.send_message(f"You dont have permission for this command", ephemeral= True)
+    
+    
+@client.tree.command(name="getuserpic", description="Get's Users Pic")
+@app_commands.describe(user= "Select User")
+async def getuserpic(interaction: discord.Interaction, user:discord.User):
+    if interaction.user.guild_permissions.administrator:
+        return await interaction.response.send_message(user.avatar.url, ephemeral= False)
     else:
         return await interaction.response.send_message(f"You dont have permission for this command", ephemeral= True)
 
