@@ -529,7 +529,7 @@ async def toss(interaction: discord.Interaction):
 
 
 
-client.run(dotenv_values("/home/shubhojit/token/token.env")["KAC_CHAN"])
+client.run(dotenv_values("/home/shubhojit/token/token.env")["EUPHIE"])
 
 
 
