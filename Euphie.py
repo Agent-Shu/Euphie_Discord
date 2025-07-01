@@ -20,7 +20,7 @@ import yt_dlp
 
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 
-cluster = motor.motor_asyncio.AsyncIOMotorClient("mongodb+srv://"+dotenv_values('/home/shubhojit/token/token.env')['username']+":"+dotenv_values('/home/shubhojit/token/token.env')['password']+"@euphiedatabase.vatvwq8.mongodb.net/?retryWrites=true&w=majority")
+cluster = motor.motor_asyncio.AsyncIOMotorClient("mongodb+srv://"+dotenv_values('/root/Euphie_Discord/token.env')['username']+":"+dotenv_values('/root/Euphie_Discord/token.env')['password']+"@euphiedatabase.vatvwq8.mongodb.net/?retryWrites=true&w=majority")
 db = cluster["EuphieDataBase"]
 
 
